@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poker Vis Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    main.sim { max-width: 1100px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    .panel { min-width: 0; }
+    .slot-in input { width: 100%; }
+    .picker button { min-width: 0; }
+    .panel {
+      background: #1b1630;
+      padding: 20px;
+      box-shadow: 0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink);
+      border-top: 6px solid var(--gold-dark);
+    }
+    .panel h2 { font-family: var(--px); font-size: 12px; color: var(--gold); margin: 0 0 6px; }
+    .panel h3 { font-family: var(--px); font-size: 9px; color: #aaa; margin: 20px 0 10px; }
+    .panel .hint { color: #8a83b0; margin: 0 0 14px; line-height: 1.1; font-size: 18px; }
+    input, select {
+      font-family: var(--px); font-size: 10px;
+      padding: 7px 6px;
+      background: #0d0b1a; color: var(--gold);
+      border: 0; box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 2px #2e2850;
+      min-width: 0;
+    }
+    input:focus, select:focus { outline: 3px solid var(--teal); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .row > label { font-family: var(--px); font-size: 8px; color: #cfc8f0; min-width: 64px; }
+    button.small { font-size: 8px; padding: 7px 8px; }
+    button.teal { background: var(--teal); }
+    button.ghost { background: #2e2850; color: var(--cream); }
+    button.danger { background: var(--red); color: #fff; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* board slots */
+    .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+    .slot-in { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+    .slot-in span { font-family: var(--px); font-size: 7px; color: #8a83b0; text-align: center; }
+    .slot-in input.code { text-align: center; font-size: 13px; text-transform: uppercase; }
+    .slot-in input.code.red { color: #ff7b84; }
+    .slot-in input.code.bad { box-shadow: 0 0 0 3px var(--red); }
+    .slot-in input.conf { text-align: center; font-size: 9px; color: var(--teal); }
+
+    /* card picker */
+    .picker { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; margin-bottom: 14px; }
+    .picker button {
+      font-family: var(--px); font-size: 8px; padding: 6px 0;
+      background: var(--cream); color: var(--ink);
+      box-shadow: 0 0 0 2px var(--ink);
+    }
+    .picker button.red { color: var(--red); }
+    .picker button i { font-style: normal; font-family: 'Segoe UI Symbol', sans-serif; font-size: 11px; }
+
+    .balance { font-family: var(--px); font-size: 22px; color: var(--gold); text-shadow: 3px 3px 0 #000; margin: 6px 0 16px; }
+    .balance em { font-style: normal; font-size: 11px; color: var(--teal); }
+    #wallet { flex: 1; font-size: 9px; }
+    #amount, #payout-amount { width: 90px; }
+    #payout-to { flex: 1; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 17px; }
+    th { font-family: var(--px); font-size: 7px; color: #8a83b0; text-align: left; padding: 4px; }
+    td { padding: 4px; border-top: 2px dotted #2e2850; }
+    tr.pick { cursor: pointer; }
+    tr.pick:hover td { background: #2a2448; }
+    tr.selected td { background: #2e2850; }
+    td.role { font-family: var(--px); font-size: 8px; color: #4cc9f0; }
+    td.status { font-family: var(--px); font-size: 7px; }
+    td.status.busted { color: #888; }
+    td.status.short, td.status.allin { color: #ff6b6b; }
+    td.status.over { color: var(--red); }
+    td.status.ok { color: var(--teal); }
+
+    #log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 17px; }
+    #log li { padding: 3px 0; border-bottom: 2px dotted #2e2850; display: flex; justify-content: space-between; gap: 8px; }
+    #log li.dep span { color: var(--gold); }
+    #log li.pay span { color: var(--teal); }
+    #log li.ml span { color: #cfc8f0; }
+    #log li.err span { color: #ff7b84; }
+    #log time { color: #666; white-space: nowrap; }
+
+    .wallet-info { min-height: 32px; padding-left: 74px; }
+    #wallet-info { font-family: var(--px); font-size: 8px; color: var(--teal); line-height: 1.6; }
+    #wallet-info.new { color: var(--gold); }
+    #wallet-info.empty { color: #ff7b84; }
+    #rebuy[hidden] { display: none; }
+    a.open { font-family: var(--px); font-size: 9px; color: var(--ink); background: var(--teal); padding: 8px 10px; text-decoration: none; }
+    .full { grid-column: 1 / -1; }
+    @media (max-width: 860px) { main.sim { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 520px) { .picker button { font-size: 6px; } .picker button i { font-size: 8px; } }
+  </style>
+</head>
+<body>
+  <header style="max-width:1100px">
+    <h1>POKER<span>VIS</span>&nbsp;SIM</h1>
+    <div class="statuses">
+      <div class="pill" id="link-status" data-state="wait">TABLE <b>…</b></div>
+      <a class="open" href="index.html?sim" target="pokervis-table">OPEN TABLE ↗</a>
+    </div>
+  </header>
+
+  <main class="sim">
+    <!-- ML / camera -->
+    <section class="panel">
+      <h2>CAMERA / ML MODEL</h2>
+      <p class="hint">Pretend to be the vision model: enter the board cards (e.g. <b>As</b>, <b>10h</b>, <b>Td</b>) or tap them below, set how confident the model is, then send.</p>
+
+      <div class="slots" id="slots"></div>
+      <div class="picker" id="picker"></div>
+
+      <div class="row">
+        <button id="send-board" type="button">SEND BOARD</button>
+        <button id="random-card" type="button" class="small ghost">+ RANDOM CARD</button>
+        <button id="clear-board" type="button" class="small ghost">CLEAR</button>
+        <button id="new-hand" type="button" class="small teal">NEW HAND</button>
+      </div>
+      <p class="hint" style="margin:0">NEW HAND clears the board and moves the dealer button. Confidence below 80% shows as a "??" card on the table.</p>
+    </section>
+
+    <!-- Pot wallet -->
+    <section class="panel">
+      <h2>POT WALLET</h2>
+      <div class="balance"><span id="balance">0.000</span> <em>SOL</em></div>
+
+      <h3>SEND SOL TO THE POT</h3>
+      <div class="row">
+        <label for="wallet">FROM</label>
+        <input id="wallet" list="wallets" placeholder="fake wallet id" autocomplete="off" />
+        <datalist id="wallets"></datalist>
+        <button id="new-wallet" type="button" class="small ghost">NEW WALLET</button>
+      </div>
+      <div class="row wallet-info">
+        <span id="wallet-info">ENTER A WALLET ID</span>
+        <button id="rebuy" type="button" class="small teal" hidden>REBUY</button>
+      </div>
+      <div class="row">
+        <label for="amount">AMOUNT</label>
+        <input id="amount" type="number" step="0.01" min="0.001" value="0.1" />
+        <button type="button" class="small ghost quick" data-q="sb">SB</button>
+        <button type="button" class="small ghost quick" data-q="bb">BB</button>
+        <button type="button" class="small ghost quick" data-q="0.25">0.25</button>
+        <button type="button" class="small ghost quick" data-q="0.5">0.5</button>
+        <button type="button" class="small ghost quick" data-q="allin">ALL IN</button>
+      </div>
+      <div class="row">
+        <button id="send-sol" type="button">SEND SOL</button>
+      </div>
+
+      <h3>PAY OUT THE POT</h3>
+      <div class="row">
+        <label for="payout-to">TO</label>
+        <select id="payout-to"></select>
+      </div>
+      <div class="row">
+        <label for="payout-amount">AMOUNT</label>
+        <input id="payout-amount" type="number" step="0.01" min="0.001" />
+        <button id="payout-all" type="button" class="small ghost">WHOLE POT</button>
+        <button id="payout" type="button" class="teal">PAY OUT</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>PLAYERS</h2>
+      <p class="hint">As the table sees them. Click a row to send from that wallet.</p>
+      <table>
+        <thead><tr><th>#</th><th>WALLET</th><th>ROLE</th><th>BALANCE</th><th>BET</th><th>STATUS</th></tr></thead>
+        <tbody id="players"><tr><td colspan="6" style="color:#666">No players yet: send SOL from a wallet to seat one.</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>EVENT LOG</h2>
+      <p class="hint">Everything sent to the table. It's replayed if the table page reloads, like reading the pot's transaction history.</p>
+      <ul id="log"></ul>
+      <div class="row" style="margin-top:14px">
+        <button id="reset-sim" type="button" class="small danger">RESET EVERYTHING</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createSimLink } from './sim-link.js';
+    const $ = (s) => document.querySelector(s);
+    const fmt = (n) => n.toFixed(3);
+    const short = (w) => (w.length > 12 ? `${w.slice(0, 4)}…${w.slice(-4)}` : w);
+    const EVENTS_KEY = 'pokervis.sim.events';
+    const BOARD_KEY = 'pokervis.sim.board';
+    const SUITS = { s: '♠', h: '♥', d: '♦', c: '♣' };
+    const RANKS = 'AKQJT98765432';
+
+    const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+    const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* blocked */ } };
+
+    // events: deposits, payouts and new-hand resets, in order (the "pot history")
+    let events = load(EVENTS_KEY, []);
+    let lastBoard = load(BOARD_KEY, null);
+    let tableState = null;
+
+    const balance = () => events.reduce((b, e) => b + (e.type === 'deposit' ? e.sol : e.type === 'payout' ? -e.sol : 0), 0);
+
+    function send(msg, { record = true } = {}) {
+      if (!(Date.now() - lastSeen < 5000 && lastSeen > 0)) {
+        logLine('NO TABLE CONNECTED: OPEN THE TABLE (SAVED, IT WILL CATCH UP)', 'err');
+      }
+      if (record) {
+        events.push(msg);
+        save(EVENTS_KEY, events);
+      }
+      channel.postMessage(msg);
+      render();
+    }
+
+    function sync(to) {
+      channel.postMessage({ type: 'sync', to, events, board: lastBoard });
+    }
+
+    // ---------------- connection ----------------
+    let lastSeen = 0;
+    const knownTables = new Set();
+    const channel = createSimLink((m) => {
+      lastSeen = Date.now();
+      // first time we hear from a table page → replay the whole history to it
+      if (m.type === 'here' && m.table && !knownTables.has(m.table)) {
+        knownTables.add(m.table);
+        sync(m.table);
+        logLine(`TABLE CONNECTED (${channel.relay ? 'VIA SERVER' : 'SAME BROWSER'})`, 'ml');
+      }
+      if (m.type === 'state') { tableState = m; renderPlayers(); }
+      if (m.type === 'cleared') { events = []; lastBoard = null; save(EVENTS_KEY, events); save(BOARD_KEY, null); logLine('TABLE STARTED A NEW SESSION', 'ml'); render(); }
+      updateLink();
+    });
+    function updateLink() {
+      const on = Date.now() - lastSeen < 5000 && lastSeen > 0;
+      const pill = $('#link-status');
+      pill.dataset.state = on ? 'live' : 'error';
+      pill.querySelector('b').textContent = on ? 'CONNECTED' : 'NOT OPEN';
+    }
+    // ping every 2s; tables answer with their id (and plain demo tables switch to sim mode)
+    const ping = () => { channel.postMessage({ type: 'hello-sim' }); setTimeout(updateLink, 700); };
+    setInterval(ping, 2000);
+    ping();
+
+    // ---------------- log ----------------
+    function logLine(text, kind) {
+      const li = document.createElement('li');
+      li.className = kind;
+      const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      li.innerHTML = '<span></span><time></time>';
+      li.querySelector('span').textContent = text;
+      li.querySelector('time').textContent = t;
+      $('#log').prepend(li);
+      while ($('#log').children.length > 60) $('#log').lastChild.remove();
+    }
+
+    // ---------------- board / ML ----------------
+    const slotEls = [];
+    for (let i = 0; i < 5; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'slot-in';
+      wrap.innerHTML = `<span>${['FLOP 1', 'FLOP 2', 'FLOP 3', 'TURN', 'RIVER'][i]}</span>
+        <input class="code" maxlength="3" placeholder="--" aria-label="Card ${i + 1}" />
+        <input class="conf" type="number" min="1" max="100" value="95" aria-label="Confidence ${i + 1} (%)" title="Model confidence %" />`;
+      $('#slots').appendChild(wrap);
+      const code = wrap.querySelector('.code');
+      code.addEventListener('input', () => { renderSlots(); });
+      slotEls.push({ code, conf: wrap.querySelector('.conf') });
+    }
+
+    function normalize(raw) {
+      const m = String(raw).trim().match(/^(10|[2-9tjqka])([shdc])$/i);
+      if (!m) return null;
+      const r = m[1] === '10' ? 'T' : m[1].toUpperCase();
+      return r + m[2].toLowerCase();
+    }
+    const usedCards = () => new Set(slotEls.map((s) => normalize(s.code.value)).filter(Boolean));
+
+    for (const s of 'shdc') {
+      for (const r of RANKS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.card = r + s;
+        b.className = s === 'h' || s === 'd' ? 'red' : '';
+        b.innerHTML = `${r === 'T' ? '10' : r}<i>${SUITS[s]}</i>`;
+        b.title = r + s;
+        b.addEventListener('click', () => fillNext(r + s));
+        $('#picker').appendChild(b);
+      }
+    }
+
+    function fillNext(card) {
+      const empty = slotEls.find((s) => !s.code.value.trim());
+      if (!empty) return logLine('BOARD IS FULL: CLEAR IT OR START A NEW HAND', 'err');
+      empty.code.value = card;
+      renderSlots();
+    }
+
+    function renderSlots() {
+      const used = usedCards();
+      const seen = new Set();
+      slotEls.forEach((s) => {
+        const v = s.code.value.trim();
+        const n = normalize(v);
+        const dup = n && seen.has(n);
+        if (n) seen.add(n);
+        s.code.classList.toggle('bad', (!!v && !n) || dup);
+        s.code.classList.toggle('red', !!n && 'hd'.includes(n[1]));
+      });
+      document.querySelectorAll('#picker button').forEach((b) => { b.disabled = used.has(b.dataset.card); });
+    }
+
+    function boardCards() {
+      const cards = [];
+      for (const s of slotEls) {
+        const v = s.code.value.trim();
+        if (!v) break; // only the filled slots from the left
+        const code = normalize(v);
+        if (!code) return { error: `"${v}" IS NOT A CARD (USE E.G. As, 10h, Td)` };
+        if (cards.some((c) => c.code === code)) return { error: `${code} IS ON THE BOARD TWICE` };
+        const conf = Math.min(100, Math.max(1, Number(s.conf.value) || 95)) / 100;
+        cards.push({ code, conf });
+      }
+      return { cards };
+    }
+
+    $('#send-board').addEventListener('click', () => {
+      const { cards, error } = boardCards();
+      if (error) return logLine(error, 'err');
+      const street = { 0: 'preflop', 3: 'flop', 4: 'turn', 5: 'river' }[cards.length];
+      const msg = { type: 'board', cards, ...(street ? { street } : {}) };
+      lastBoard = msg;
+      save(BOARD_KEY, lastBoard);
+      send(msg, { record: false });
+      logLine(`ML: ${cards.map((c) => `${c.code} ${Math.round(c.conf * 100)}%`).join(', ') || 'EMPTY BOARD'}`, 'ml');
+    });
+
+    $('#random-card').addEventListener('click', () => {
+      const used = usedCards();
+      const free = [...'shdc'].flatMap((s) => [...RANKS].map((r) => r + s)).filter((c) => !used.has(c));
+      fillNext(free[Math.floor(Math.random() * free.length)]);
+    });
+
+    function clearSlots() {
+      slotEls.forEach((s) => { s.code.value = ''; s.conf.value = 95; });
+      renderSlots();
+    }
+    $('#clear-board').addEventListener('click', clearSlots);
+
+    $('#new-hand').addEventListener('click', () => {
+      clearSlots();
+      lastBoard = null;
+      save(BOARD_KEY, null);
+      send({ type: 'reset' });
+      logLine('ML: NEW HAND (TABLE CLEARED)', 'ml');
+    });
+
+    // ---------------- wallet / pot ----------------
+    function fakeWallet() {
+      const b58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      return Array.from({ length: 44 }, () => b58[Math.floor(Math.random() * b58.length)]).join('');
+    }
+    $('#new-wallet').addEventListener('click', () => { $('#wallet').value = fakeWallet(); renderPlayers(); });
+    $('#wallet').addEventListener('input', renderPlayers);
+
+    const playerFor = (w) => tableState?.players.find((p) => p.wallet === w);
+    const buyInNow = () => tableState?.config?.buyIn ?? 1;
+    const EPS = 1e-9;
+
+    // Fake wallet balances, rebuilt from the event log:
+    // joining gives a wallet one buy-in, every send comes off it, payouts and
+    // rebuys go back on. A wallet at 0 must rebuy before it can send again.
+    function walletBalances() {
+      const bal = {};
+      for (const e of events) {
+        if (e.type === 'deposit') {
+          if (!(e.wallet in bal)) bal[e.wallet] = e.buyIn ?? buyInNow();
+          bal[e.wallet] -= e.sol;
+        } else if (e.type === 'payout') {
+          bal[e.wallet] = (bal[e.wallet] ?? 0) + e.sol;
+        } else if (e.type === 'rebuy') {
+          bal[e.wallet] = (bal[e.wallet] ?? 0) + e.buyIn;
+        }
+      }
+      for (const w in bal) if (Math.abs(bal[w]) < EPS) bal[w] = 0;
+      return bal;
+    }
+
+    /** What the selected wallet can do right now. */
+    function walletInfo(wallet) {
+      if (!wallet) return { state: 'none' };
+      const bal = walletBalances();
+      if (!(wallet in bal)) return { state: 'new', available: buyInNow() };
+      return { state: bal[wallet] > EPS ? 'ok' : 'empty', available: Math.max(0, bal[wallet]) };
+    }
+
+    function updateWalletInfo() {
+      const wallet = $('#wallet').value.trim();
+      const info = walletInfo(wallet);
+      const el = $('#wallet-info');
+      el.className = info.state;
+      if (info.state === 'none') el.textContent = 'ENTER A WALLET ID';
+      else if (info.state === 'new') el.textContent = `NEW PLAYER: JOINS WITH A ${fmt(info.available)} SOL BUY-IN`;
+      else if (info.state === 'ok') el.textContent = `BALANCE ${fmt(info.available)} SOL`;
+      else el.textContent = 'BALANCE 0: REBUY TO KEEP PLAYING';
+      $('#rebuy').hidden = info.state !== 'empty';
+      $('#rebuy').textContent = `REBUY ${fmt(buyInNow())} SOL`;
+      $('#send-sol').disabled = info.state === 'none' || info.state === 'empty';
+    }
+
+    document.querySelectorAll('.quick').forEach((b) => b.addEventListener('click', () => {
+      const q = b.dataset.q;
+      const cfg = tableState?.config || { smallBlind: 0.05, bigBlind: 0.1 };
+      let v;
+      if (q === 'sb') v = cfg.smallBlind;
+      else if (q === 'bb') v = cfg.bigBlind;
+      else if (q === 'allin') {
+        const info = walletInfo($('#wallet').value.trim());
+        if (info.state === 'none') return logLine('ENTER A WALLET ID FIRST', 'err');
+        if (info.state === 'empty') return logLine('THIS WALLET IS EMPTY: REBUY FIRST', 'err');
+        v = info.available;
+      } else v = Number(q);
+      $('#amount').value = +v.toFixed(6);
+    }));
+
+    $('#send-sol').addEventListener('click', () => {
+      const wallet = $('#wallet').value.trim();
+      const sol = Number($('#amount').value);
+      if (!wallet) return logLine('ENTER A WALLET ID FIRST', 'err');
+      if (!(sol > 0)) return logLine('AMOUNT MUST BE ABOVE 0', 'err');
+      const info = walletInfo(wallet);
+      if (info.state === 'empty') return logLine(`${short(wallet)} HAS 0 SOL: REBUY FIRST`, 'err');
+      if (sol > info.available + EPS) {
+        return logLine(`${short(wallet)} ONLY HAS ${fmt(info.available)} SOL (USE ALL IN)`, 'err');
+      }
+      const msg = { type: 'deposit', wallet, sol, balance: balance() + sol };
+      if (info.state === 'new') msg.buyIn = info.available; // remember the buy-in this wallet joined with
+      send(msg);
+      const p = playerFor(wallet);
+      const left = info.available - sol;
+      logLine(`${p ? `PLAYER ${p.num}` : short(wallet)} SENT ${fmt(sol)} SOL (${fmt(Math.max(0, left))} LEFT)`, 'dep');
+    });
+
+    $('#rebuy').addEventListener('click', () => {
+      const wallet = $('#wallet').value.trim();
+      if (walletInfo(wallet).state !== 'empty') return;
+      const buyIn = buyInNow();
+      send({ type: 'rebuy', wallet, buyIn }); // the table only counts it once they send SOL again
+      const p = playerFor(wallet);
+      logLine(`${p ? `PLAYER ${p.num}` : short(wallet)} REBOUGHT FOR ${fmt(buyIn)} SOL: SEND TO SIT BACK IN`, 'pay');
+    });
+
+    $('#payout-all').addEventListener('click', () => { $('#payout-amount').value = +balance().toFixed(6); });
+
+    $('#payout').addEventListener('click', () => {
+      const wallet = $('#payout-to').value;
+      const sol = Number($('#payout-amount').value) || balance();
+      if (!wallet) return logLine('NO PLAYER TO PAY', 'err');
+      if (!(sol > 0)) return logLine('NOTHING IN THE POT', 'err');
+      if (sol > balance() + 1e-9) return logLine(`POT ONLY HAS ${fmt(balance())} SOL`, 'err');
+      send({ type: 'payout', wallet, sol, balance: balance() - sol });
+      const p = playerFor(wallet);
+      logLine(`POT PAID ${fmt(sol)} SOL TO ${p ? `PLAYER ${p.num}` : short(wallet)}`, 'pay');
+      $('#payout-amount').value = '';
+    });
+
+    $('#reset-sim').addEventListener('click', () => {
+      if (!confirm('Clear the simulated pot, players and board?')) return;
+      events = [];
+      lastBoard = null;
+      save(EVENTS_KEY, events);
+      save(BOARD_KEY, null);
+      clearSlots();
+      channel.postMessage({ type: 'clear' });
+      tableState = tableState && { ...tableState, players: [] };
+      logLine('SIMULATOR RESET', 'ml');
+      render();
+    });
+
+    // ---------------- render ----------------
+    function knownWallets() {
+      const seen = new Set(events.filter((e) => e.wallet).map((e) => e.wallet));
+      (tableState?.players || []).forEach((p) => seen.add(p.wallet));
+      return [...seen];
+    }
+
+    function renderPlayers() {
+      const tbody = $('#players');
+      const list = tableState?.players || [];
+      const current = $('#wallet').value.trim();
+      const bal = walletBalances();
+      updateWalletInfo();
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:#666">No players yet: send SOL from a wallet to seat one.</td></tr>';
+      } else {
+        tbody.innerHTML = '';
+        for (const p of list) {
+          const tr = document.createElement('tr');
+          tr.className = 'pick' + (p.wallet === current ? ' selected' : '');
+          tr.title = p.wallet;
+          const wb = bal[p.wallet] ?? 0;
+          // table says OUT but the wallet has rebought → waiting for their first send
+          const status = p.status === 'busted' && wb > EPS ? 'REBOUGHT' : { ok: 'IN', short: 'ALL-IN ONLY', allin: 'ALL IN', busted: 'OUT', over: 'OVER' }[p.status];
+          tr.innerHTML = `<td>${p.num}</td><td></td><td class="role">${p.role}</td><td>${fmt(wb)}</td><td>${p.bet > 0 ? fmt(p.bet) : '—'}</td><td class="status ${p.status}">${status}</td>`;
+          tr.children[1].textContent = short(p.wallet);
+          tr.addEventListener('click', () => { $('#wallet').value = p.wallet; renderPlayers(); });
+          tbody.appendChild(tr);
+        }
+      }
+      // payout dropdown: seated players
+      const sel = $('#payout-to');
+      const prev = sel.value;
+      sel.innerHTML = '';
+      for (const p of list) {
+        const o = document.createElement('option');
+        o.value = p.wallet;
+        o.textContent = `PLAYER ${p.num} (${short(p.wallet)})`;
+        sel.appendChild(o);
+      }
+      if (list.some((p) => p.wallet === prev)) sel.value = prev;
+    }
+
+    function render() {
+      $('#balance').textContent = fmt(balance());
+      $('#wallets').innerHTML = '';
+      for (const w of knownWallets()) {
+        const o = document.createElement('option');
+        o.value = w;
+        $('#wallets').appendChild(o);
+      }
+      renderPlayers();
+    }
+
+    renderSlots();
+    render();
+    if (events.length) logLine(`RESTORED ${events.length} EVENTS FROM LAST TIME`, 'ml');
+  </script>
+</body>
+</html>

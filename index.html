@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poker Visualiser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1><canvas id="logo-coin" class="px"></canvas> POKER<span>VIS</span></h1>
+    <div class="statuses">
+      <div class="pill" id="cam-status" data-state="wait">CAMERA <b>…</b></div>
+      <div class="pill" id="wallet-status" data-state="wait">POT <b>…</b></div>
+      <button id="setup-btn" type="button">SETUP</button>
+    </div>
+  </header>
+
+  <dialog id="setup">
+    <form id="setup-form">
+      <h2>TABLE SETUP</h2>
+      <label>BUY-IN <span><input id="set-buyin" type="number" step="0.01" min="0.01" required /> SOL</span></label>
+      <label>SMALL BLIND <span><input id="set-sb" type="number" step="0.01" min="0.01" required /> SOL</span></label>
+      <label>BIG BLIND <span><input id="set-bb" type="number" step="0.01" min="0.01" required /> SOL</span></label>
+      <p class="hint">Each player starts with one buy-in as their stack. With less than a big blind left they must go all in. At zero they're out. Sending SOL from the same wallet rebuys them for another buy-in, and that deposit is their first bet.</p>
+      <p id="set-error" class="error"></p>
+      <div class="row">
+        <button type="submit">SAVE</button>
+        <button type="button" id="set-cancel" class="ghost">CANCEL</button>
+      </div>
+      <hr />
+      <button type="button" id="new-session" class="danger">NEW SESSION</button>
+      <p class="hint">Clears all seats and stacks. Only pot transactions from now on will count.</p>
+    </form>
+  </dialog>
+
+  <main>
+    <section class="felt" aria-label="Board">
+      <div class="felt-top">
+        <span class="tag">BOARD</span>
+        <span class="tag" id="blinds"></span>
+        <span class="tag" id="street">PRE-FLOP</span>
+      </div>
+      <div class="board">
+        <div class="slot empty"><canvas class="px"></canvas><div class="label"></div></div>
+        <div class="slot empty"><canvas class="px"></canvas><div class="label"></div></div>
+        <div class="slot empty"><canvas class="px"></canvas><div class="label"></div></div>
+        <div class="slot empty"><canvas class="px"></canvas><div class="label"></div></div>
+        <div class="slot empty"><canvas class="px"></canvas><div class="label"></div></div>
+      </div>
+      <div id="banner" aria-live="polite"></div>
+    </section>
+
+    <section class="pot" aria-label="Players and pot">
+      <div class="table-wrap">
+        <div class="oval" id="oval">
+          <div class="pot-center">
+            <canvas id="pile" class="px"></canvas>
+            <div class="pot-total">
+              <small>POT</small>
+              <div><span id="pot-amount">0.000</span> <em>SOL</em></div>
+            </div>
+            <div id="table-empty">WAITING FOR PLAYERS…<br />SEND SOL TO TAKE A SEAT</div>
+          </div>
+          <div id="seats"></div>
+        </div>
+      </div>
+
+      <div class="send">
+        <div>
+          <h2>SEND YOUR BET HERE</h2>
+          <p>Send SOL to the pot from your Solana app. Your wallet is your player ID: your first deposit takes a seat.</p>
+        </div>
+        <div>
+          <div class="addr-row">
+            <code id="addr-short"></code>
+            <button id="copy" type="button">COPY</button>
+          </div>
+          <code id="addr" class="addr-full"></code>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
